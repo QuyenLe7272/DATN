@@ -1,0 +1,18 @@
+# Dependencies & build output (rebuilt in image)
+node_modules
+.next
+out
+
+# Git & tooling
+.git
+.gitignore
+*.md
+
+# Env & deploy metadata (inject at runtime / CI)
+.env*
+!.env.example
+.vercel
+
+# Logs & OS
+npm-debug.log*
+Dockerfile*
