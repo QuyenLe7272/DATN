@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { collection, getDocs, onSnapshot } from "firebase/firestore";
-import { Search, ShoppingCart, X } from "lucide-react";
+import { Phone, Search, ShoppingCart, X } from "lucide-react";
 import { useCart } from "@/store/useCart";
 import { db } from "@/lib/firebase";
 import CartModal from "./CartModal";
@@ -220,13 +220,14 @@ export default function Header() {
         {/* --- KHỐI LOGO --- */}
         {/* Thêm h-full để báo cho thẻ Link biết nó cao bằng Header */}
         <Link href="/" className="flex h-full shrink-0 items-center">
-          <Image 
-            src="/logo.jpg"       
+          <img
+            src="/icon.jpg"
             alt="Logo in1991"
-            width={200}          // Đặt số to lên cho ảnh nét
-            height={200}         // Đặt tỷ lệ 1:1 (vuông)
-            className="h-full w-auto object-contain" // Ép chiều cao tối đa, chiều rộng tự chỉnh
-            priority
+            width={200}
+            height={200}
+            className="h-full w-auto object-contain"
+            loading="eager"
+            decoding="async"
           />
         </Link>
 
@@ -316,10 +317,10 @@ export default function Header() {
         </nav>
 
         {/* --- KHỐI GIỎ HÀNG + HOTLINE --- */}
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-3 md:gap-4">
           <button
             onClick={openCart}
-            className="relative inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border border-slate-200 text-slate-700 transition-colors hover:border-slate-300 hover:text-red-600"
+            className="relative inline-flex h-9 w-9 sm:h-10 sm:w-10 cursor-pointer items-center justify-center rounded-full border border-slate-200 text-slate-700 transition-colors hover:border-slate-300 hover:text-red-600"
             aria-label="Mở giỏ hàng"
           >
             <ShoppingCart size={18} />
@@ -332,16 +333,18 @@ export default function Header() {
           <button
             type="button"
             onClick={() => setIsSearchOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-red-600"
+            className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 px-2.5 sm:px-3 py-2 text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 hover:text-red-600 sm:h-10"
           >
             <Search size={18} />
             <span className="hidden text-sm font-semibold md:inline">Tìm kiếm</span>
           </button>
-          <a 
-            href="tel:0909123456" 
-            className="rounded-full bg-red-600 px-6 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-red-700"
+          <a
+            href="tel:0909123456"
+            className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-xs font-bold text-white shadow-md transition hover:bg-red-700 sm:h-10 sm:px-4 sm:text-sm md:px-6"
           >
-            Hotline: 0909.123.456
+            <Phone size={14} />
+            <span className="hidden sm:inline">Hotline:</span>
+            <span>0909.123.456</span>
           </a>
         </div>
       </div>

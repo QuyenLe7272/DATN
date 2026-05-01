@@ -13,7 +13,7 @@ export default function Hero() {
 
       {/* Nội dung chữ: Cần thêm relative và z-10 để chữ nổi lên trên lớp phủ */}
       <div className="relative z-10 max-w-7xl mx-auto px-4 text-center">
-        <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight">
+        <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white leading-snug md:leading-tight">
           THIẾT KẾ & THI CÔNG <br className="hidden md:block" />
           <span className="text-red-500 mt-2 block">BẢNG HIỆU QUẢNG CÁO</span>
         </h1>
@@ -22,15 +22,20 @@ export default function Hero() {
           Giải pháp quảng cáo toàn diện, nâng tầm thương hiệu của bạn với chi phí tối ưu nhất tại Đà Nẵng.
         </p>
         
-        <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+        <div className="flex flex-row items-center justify-center gap-2 w-full px-2 mt-8">
           <Link
             href="/lien-he"
-            className="w-full sm:w-auto bg-red-600 text-white px-8 py-3.5 rounded-full font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/30"
+            className="flex-1 md:flex-none bg-red-600 text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap shadow-lg"
           >
-            Nhận Báo Giá Ngay
+            <span className="md:hidden">Báo Giá</span>
+            <span className="hidden md:inline">Nhận Báo Giá Ngay</span>
           </Link>
-          <Link href="/du-an" className="w-full sm:w-auto border border-white text-white px-8 py-3.5 rounded-full font-bold hover:bg-white/10 transition-colors inline-block text-center">
-            Xem Các Dự Án
+          <Link
+            href="/du-an"
+            className="flex-1 md:flex-none border border-white text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap"
+          >
+            <span className="md:hidden">Dự Án</span>
+            <span className="hidden md:inline">Xem Các Dự Án</span>
           </Link>
         </div>
       </div>

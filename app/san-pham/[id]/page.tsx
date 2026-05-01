@@ -2,7 +2,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import ProductInteractive from '@/components/product/ProductInteractive';
 import Breadcrumbs from '@/components/Breadcrumbs';
 import 'react-quill-new/dist/quill.snow.css';
@@ -12,6 +12,16 @@ type ProductPageProps = {
     id: string;
   }>;
 };
+
+export async function generateStaticParams() {
+  try {
+    const snapshot = await getDocs(collection(db, 'products'));
+    return snapshot.docs.map((docSnap) => ({ id: docSnap.id }));
+  } catch (err) {
+    console.error('[generateStaticParams] /san-pham/[id]: không fetch được products:', err);
+    return [];
+  }
+}
 
 export default async function ProductDetail({ params }: ProductPageProps) {
   const { id } = await params;

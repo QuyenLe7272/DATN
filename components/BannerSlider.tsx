@@ -7,6 +7,7 @@ const banners = [
   "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776739415/banner1_tmc1d5.jpg",
   "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776783995/banner2_lo2tdm.jpg",
   "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776783995/banner3_qjhpkj.jpg",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1777388824/zkh0dqriz4y1hnqbrsst.webp",
 ];
 
 export default function BannerSlider() {
@@ -21,7 +22,7 @@ export default function BannerSlider() {
   }, []);
 
   return (
-    <div className="relative w-full h-[300px] md:h-[400px] lg:h-[500px] overflow-hidden group">
+    <div className="relative w-full overflow-hidden group bg-slate-900 min-h-[400px] md:min-h-[600px]">
       {banners.map((image, index) => (
         <div
           key={image}
@@ -29,37 +30,43 @@ export default function BannerSlider() {
             index === currentIndex ? "opacity-100 z-10" : "opacity-0 z-0"
           }`}
         >
-          <img src={image} alt={`Banner ${index + 1}`} className="w-full h-full object-cover" />
+          <img
+            src={image}
+            alt={`Banner ${index + 1}`}
+            className="w-full h-full object-cover object-center"
+          />
         </div>
       ))}
 
-      {/* Lớp phủ đen mờ 70% */}
-      <div className="absolute inset-0 bg-black/70 z-20"></div>
+      {/* Lớp phủ đen mờ ưu tiên mobile */}
+      <div className="absolute inset-0 bg-black/60 md:bg-black/40 z-20" />
 
-      {/* Nội dung chữ chính xác từ Hero.tsx */}
-      <div className="absolute inset-0 z-30 flex flex-col justify-center items-center px-4 text-center">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-extrabold text-white leading-tight">
+      {/* Nội dung chữ: căn giữa dọc, ưu tiên đọc tốt trên mobile */}
+      <div className="absolute inset-0 z-30 flex flex-col justify-center items-center py-12 px-4 text-center">
+        <div className="max-w-7xl mx-auto space-y-4">
+          <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white leading-snug md:leading-tight drop-shadow-lg">
             THIẾT KẾ & THI CÔNG <br className="hidden md:block" />
             <span className="text-red-500 mt-2 block">BẢNG HIỆU QUẢNG CÁO</span>
           </h1>
           
-          <p className="text-slate-300 mt-6 text-lg max-w-2xl mx-auto">
+          <p className="text-slate-300 text-sm md:text-lg max-w-2xl mx-auto line-clamp-2">
             Giải pháp quảng cáo toàn diện, nâng tầm thương hiệu của bạn với chi phí tối ưu nhất tại Đà Nẵng.
           </p>
           
-          <div className="mt-10 flex flex-col sm:flex-row justify-center items-center gap-4">
+          <div className="flex flex-row items-center justify-center gap-2 w-full px-2 mb-8">
             <Link
               href="/lien-he"
-              className="w-full sm:w-auto bg-red-600 text-white px-8 py-3.5 rounded-full font-bold hover:bg-red-700 transition-colors shadow-lg shadow-red-600/30"
+              className="flex-1 md:flex-none bg-red-600 text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap shadow-lg shadow-red-600/30"
             >
-              Nhận Báo Giá Ngay
+              <span className="md:hidden">Báo Giá</span>
+              <span className="hidden md:inline">Nhận Báo Giá Ngay</span>
             </Link>
-            <Link 
-              href="/du-an" 
-              className="w-full sm:w-auto border border-white text-white px-8 py-3.5 rounded-full font-bold hover:bg-white/10 transition-colors inline-block text-center"
+            <Link
+              href="/du-an"
+              className="flex-1 md:flex-none border border-white text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap"
             >
-              Xem Các Dự Án
+              <span className="md:hidden">Dự Án</span>
+              <span className="hidden md:inline">Xem Các Dự Án</span>
             </Link>
           </div>
         </div>

@@ -11,9 +11,9 @@ export default function Breadcrumbs({ items }: BreadcrumbsProps) {
   if (normalized.length === 0) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="py-4 mb-4">
+    <nav aria-label="Breadcrumb" className="px-4 py-3 mb-4">
       <ol
-        className="flex items-center text-sm overflow-x-auto whitespace-nowrap scrollbar-hide"
+        className="flex flex-wrap items-center gap-y-2 text-gray-500 text-xs md:text-sm leading-relaxed"
         itemScope
         itemType="https://schema.org/BreadcrumbList"
       >

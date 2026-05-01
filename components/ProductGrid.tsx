@@ -124,6 +124,16 @@ export default function ProductGrid({
             <div className="bg-red-600 px-6 py-3 text-lg font-bold uppercase text-white">
               {section.parent.name}
             </div>
+            <div className="flex items-center justify-end pr-4 md:hidden">
+              <Link
+                href={`/danh-muc/${section.parent.id}`}
+                className="font-semibold text-red-600 hover:underline"
+              >
+                <span className="md:hidden">Tất cả</span>
+                <span className="hidden md:inline">Xem tất cả</span>
+                <span className="ml-1">»</span>
+              </Link>
+            </div>
             <div className="hidden items-center gap-3 px-4 text-sm text-slate-700 md:flex">
               {section.children.map((child, index) => (
                 <React.Fragment key={child.id}>
@@ -133,8 +143,13 @@ export default function ProductGrid({
                     {index < section.children.length - 1 ? <span>|</span> : null}
                 </React.Fragment>
               ))}
-              <Link href={`/danh-muc/${section.parent.id}`} className="font-semibold text-red-600 hover:underline">
-                Xem tất cả »
+              <Link
+                href={`/danh-muc/${section.parent.id}`}
+                className="font-semibold text-red-600 hover:underline"
+              >
+                <span className="md:hidden">Tất cả</span>
+                <span className="hidden md:inline">Xem tất cả</span>
+                <span className="ml-1">»</span>
               </Link>
             </div>
           </div>

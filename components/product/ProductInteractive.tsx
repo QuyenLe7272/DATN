@@ -76,7 +76,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-start">
-        <div className="w-full max-w-lg mx-auto sticky top-24">
+        <div className="w-full md:max-w-lg md:sticky md:top-24">
           {productImages.length > 0 ? (
             <div className="space-y-4">
               <div
@@ -136,7 +136,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
           <h1 className="text-3xl font-extrabold text-slate-900 md:text-4xl leading-tight">{name}</h1>
           <p className="mt-3 text-3xl font-bold text-red-600">{price}</p>
 
-          <div className="mt-6 mb-8 h-auto rounded-xl border border-slate-100 bg-slate-50 p-5">
+          <div className="mt-6 mb-8 h-auto rounded-xl border border-slate-100 bg-slate-50 p-4 md:p-10">
             <h3 className="mb-2 font-semibold text-slate-900">Tóm tắt</h3>
             <div className="text-gray-600 text-sm md:text-base space-y-2">
               {summaryParagraphs.length > 0 ? (
@@ -179,7 +179,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
       </div>
       {isZoomed && activeImage ? (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
           onClick={() => setIsZoomed(false)}
         >
           <button
