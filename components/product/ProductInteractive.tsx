@@ -5,11 +5,14 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "@/store/useCart";
+import ProductBadge, { type ProductBadgeType } from "@/components/ProductBadge";
 
 type ProductData = {
   id: string;
   name?: string;
   categoryName?: string;
+  badgeType?: ProductBadgeType;
+  discountPercent?: number | null;
   image?: string;
   images?: string[];
   price?: string;
@@ -27,17 +30,17 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
   const [isZoomed, setIsZoomed] = useState(false);
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
   const [isHovered, setIsHovered] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const productImages = useMemo(() => {
     const fromArray = (product.images ?? []).filter(Boolean);
     if (fromArray.length > 0) return fromArray;
     return product.image ? [product.image] : [];
   }, [product.images, product.image]);
-  const [activeImage, setActiveImage] = useState(product.image ?? product.images?.[0] ?? "");
-
-  useEffect(() => {
-    setActiveImage(productImages[0] ?? "");
-  }, [productImages]);
+  const activeImage = useMemo(() => {
+    if (selectedImage && productImages.includes(selectedImage)) return selectedImage;
+    return productImages[0] ?? "";
+  }, [productImages, selectedImage]);
 
   useEffect(() => {
     if (!isZoomed) return;
@@ -88,6 +91,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
                 }}
                 onMouseMove={handleMouseMove}
               >
+                <ProductBadge badgeType={product.badgeType} discountPercent={product.discountPercent} />
                 <Image
                   src={activeImage || productImages[0]}
                   alt={name}
@@ -110,7 +114,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
                     <button
                       key={image}
                       type="button"
-                      onClick={() => setActiveImage(image)}
+                      onClick={() => setSelectedImage(image)}
                       className={`relative aspect-square overflow-hidden rounded-lg border bg-slate-100 transition ${
                         activeImage === image
                           ? "border-red-500 ring-2 ring-red-200"
@@ -160,6 +164,8 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
                   name,
                   price,
                   image: productImages[0] ?? "",
+                  badgeType: product.badgeType ?? null,
+                  discountPercent: product.discountPercent ?? null,
                   quantity: 1,
                 });
                 openCart();

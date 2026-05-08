@@ -5,6 +5,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   updateDoc,
   writeBatch,
@@ -12,11 +13,13 @@ import {
 import { db } from "@/lib/firebase";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { AddCategoryModal } from "./AddCategoryModal";
+import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
   name: string;
   parentId: string | null;
+  slug?: string;
 };
 
 type EditCategoryModalProps = {
@@ -86,10 +89,19 @@ function EditCategoryModal({
       const isDemoting = currentParentId === null && newParentId !== null;
       const currentChildren = categories.filter((item) => item.parentId === category.id);
 
+      const baseSlug = generateSlug(trimmedName);
+      const slug = await ensureUniqueSlug({
+        db,
+        collectionName: "categories",
+        baseSlug,
+        excludeDocId: category.id,
+      });
+
       if (isDemoting && currentChildren.length > 0) {
         const batch = writeBatch(db);
         batch.update(doc(db, "categories", category.id), {
           name: trimmedName,
+          slug,
           parentId: newParentId,
         });
         currentChildren.forEach((child) => {
@@ -101,6 +113,7 @@ function EditCategoryModal({
       } else {
         await updateDoc(doc(db, "categories", category.id), {
           name: trimmedName,
+          slug,
           parentId: newParentId,
         });
       }
@@ -119,7 +132,7 @@ function EditCategoryModal({
     parentCandidates.find((item) => item.id === parentId)?.name ?? "Không có";
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/50 p-4">
+    <div className="fixed inset-0 z-90 flex items-center justify-center bg-black/50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
         <h3 className="text-lg font-bold text-slate-900">Sửa danh mục</h3>
         <form className="mt-4 space-y-4" onSubmit={handleSave}>
@@ -226,6 +239,7 @@ export function AdminCategoriesPanel() {
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
     name: string;
@@ -291,6 +305,65 @@ export function AdminCategoriesPanel() {
     }
   }
 
+  async function handleSyncLegacySlugs() {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const snapshot = await getDocs(collection(db, "categories"));
+      const existing = new Set<string>();
+      snapshot.docs.forEach((docSnap) => {
+        const data = docSnap.data() as { slug?: unknown };
+        const slug = typeof data.slug === "string" ? data.slug.trim() : "";
+        if (slug) existing.add(slug);
+      });
+
+      const targets = snapshot.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as { name?: unknown; slug?: unknown };
+          const name = String(data.name ?? "").trim();
+          const slug = typeof data.slug === "string" ? data.slug.trim() : "";
+          return { id: docSnap.id, name, hasSlug: Boolean(slug) };
+        })
+        .filter((item) => item.name && !item.hasSlug);
+
+      if (targets.length === 0) {
+        setToast("Không có danh mục nào cần đồng bộ slug.");
+        return;
+      }
+
+      let updatedCount = 0;
+      let cursor = 0;
+      const CHUNK_SIZE = 450;
+
+      while (cursor < targets.length) {
+        const batch = writeBatch(db);
+        const slice = targets.slice(cursor, cursor + CHUNK_SIZE);
+
+        slice.forEach((item) => {
+          const base = generateSlug(item.name) || "item";
+          let candidate = base;
+          let suffix = 0;
+          while (existing.has(candidate)) {
+            suffix += 1;
+            candidate = `${base}-${suffix}`;
+          }
+          existing.add(candidate);
+          batch.update(doc(db, "categories", item.id), { slug: candidate });
+          updatedCount += 1;
+        });
+
+        await batch.commit();
+        cursor += CHUNK_SIZE;
+      }
+
+      setToast(`Đồng bộ slug danh mục thành công (${updatedCount} bản ghi).`);
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : "Không thể đồng bộ slug danh mục.");
+    } finally {
+      setIsSyncing(false);
+    }
+  }
+
   return (
     <>
       <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
@@ -309,6 +382,15 @@ export function AdminCategoriesPanel() {
               placeholder="Tìm kiếm danh mục cha..."
               className="flex-1 w-full max-w-md rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
             />
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={handleSyncLegacySlugs}
+              className="rounded-md border border-slate-200 bg-white px-4 py-2 font-medium whitespace-nowrap flex items-center gap-2 text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              title="Tạo slug cho các danh mục cũ chưa có trường slug"
+            >
+              {isSyncing ? "Đang đồng bộ..." : "Đồng bộ Slug dữ liệu cũ"}
+            </button>
             <button
               onClick={() => setIsAddModalOpen(true)}
               className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium whitespace-nowrap flex items-center gap-2"
@@ -455,7 +537,7 @@ export function AdminCategoriesPanel() {
       )}
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-[95] -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-95 -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
           {toast}
         </div>
       ) : null}

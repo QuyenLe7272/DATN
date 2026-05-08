@@ -2,6 +2,7 @@
  * Tạm ẩn app/admin và app/api khỏi App Router rồi chạy `next build` (static export).
  * Đổi tên được hoàn tác trong finally — kể cả khi build lỗi.
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const fs = require("fs");
 const path = require("path");
 const { spawnSync } = require("child_process");

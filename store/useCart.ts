@@ -5,6 +5,8 @@ export interface CartItem {
   name: string;
   price: string;
   image: string;
+  badgeType?: "HOT" | "NEW" | "SALE" | null;
+  discountPercent?: number | null;
   quantity: number;
 }
 

@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import type { ProductFromFirestore } from "@/components/ProductGrid";
+import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
 
 type AddProductModalProps = {
   isOpen: boolean;
@@ -18,6 +19,8 @@ type ProductFormState = {
   categoryId: string;
   price: string;
   desc: string;
+  badgeType: "" | "HOT" | "NEW" | "SALE";
+  discountPercent: string;
 };
 
 type CategoryItem = {
@@ -31,6 +34,8 @@ const initialForm: ProductFormState = {
   categoryId: "",
   price: "Liên hệ",
   desc: "",
+  badgeType: "",
+  discountPercent: "",
 };
 
 export function AddProductModal({
@@ -116,14 +121,28 @@ export function AddProductModal({
       const secureUrl = await uploadImageToCloudinary(file);
 
       const name = form.name.trim();
+      const baseSlug = generateSlug(name);
+      const slug = await ensureUniqueSlug({
+        db,
+        collectionName: "products",
+        baseSlug,
+      });
       const price = form.price.trim() || "Liên hệ";
       const desc = form.desc.trim();
+      const badgeType = form.badgeType || null;
+      const discountPercent =
+        badgeType === "SALE"
+          ? Number.parseInt(form.discountPercent, 10) || null
+          : null;
       const docRef = await addDoc(collection(db, "products"), {
         name,
+        slug,
         categoryId: category.id,
         categoryName: category.name,
         price,
         desc,
+        badgeType,
+        discountPercent,
         image: secureUrl,
         longDescription,
       });
@@ -133,10 +152,13 @@ export function AddProductModal({
       onSaved({
         id: docRef.id,
         name,
+        slug,
         categoryId: category.id,
         categoryName: category.name,
         price,
         desc,
+        badgeType,
+        discountPercent,
         image: secureUrl,
         longDescription,
       });
@@ -257,6 +279,62 @@ export function AddProductModal({
               className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-50"
               placeholder="Liên hệ hoặc số tiền"
             />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="add-product-badge"
+                className="mb-1 block text-sm font-medium text-slate-700"
+              >
+                Trạng thái (Badge)
+              </label>
+              <select
+                id="add-product-badge"
+                disabled={isLoading}
+                value={form.badgeType}
+                onChange={(e) =>
+                  setForm((f) => ({
+                    ...f,
+                    badgeType: e.target.value as ProductFormState["badgeType"],
+                    discountPercent: e.target.value === "SALE" ? f.discountPercent : "",
+                  }))
+                }
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-50"
+              >
+                <option value="">Không có</option>
+                <option value="HOT">HOT</option>
+                <option value="NEW">NEW</option>
+                <option value="SALE">SALE</option>
+              </select>
+            </div>
+
+            {form.badgeType === "SALE" ? (
+              <div>
+                <label
+                  htmlFor="add-product-discount"
+                  className="mb-1 block text-sm font-medium text-slate-700"
+                >
+                  % Giảm giá
+                </label>
+                <input
+                  id="add-product-discount"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={99}
+                  disabled={isLoading}
+                  value={form.discountPercent}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, discountPercent: e.target.value }))
+                  }
+                  className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-slate-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20 disabled:bg-slate-50"
+                  placeholder="Ví dụ: 20"
+                />
+              </div>
+            ) : (
+              <div />
+            )}
           </div>
 
           <div>

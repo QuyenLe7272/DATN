@@ -9,15 +9,20 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { db } from "@/lib/firebase";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import ProductBadge from "@/components/ProductBadge";
 
 type CategoryItem = {
   id: string;
   name: string;
   parentId: string | null;
+  slug?: string;
 };
 
 type ProductItem = {
   id: string;
+  slug?: string;
+  badgeType?: "HOT" | "NEW" | "SALE" | null;
+  discountPercent?: number | null;
   categoryId?: string;
   categoryName?: string;
   name?: string;
@@ -25,6 +30,18 @@ type ProductItem = {
   image?: string;
   desc?: string;
 };
+
+function parsePriceVnd(price?: string) {
+  if (!price) return null;
+  const digits = String(price).replace(/\D/g, "");
+  if (!digits) return null;
+  const n = Number.parseInt(digits, 10);
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatVnd(amount: number) {
+  return `${amount.toLocaleString("vi-VN")}đ`;
+}
 
 /** Trang danh mục động — logic UI giữ trong client component. */
 export default function CategoryProductsClient() {
@@ -38,11 +55,12 @@ export default function CategoryProductsClient() {
   useEffect(() => {
     const unsubscribeCategories = onSnapshot(collection(db, "categories"), (snapshot) => {
       const next = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as { name?: string; parentId?: unknown };
+        const data = docSnap.data() as { name?: string; parentId?: unknown; slug?: unknown };
         return {
           id: docSnap.id,
           name: String(data.name ?? "").trim(),
           parentId: typeof data.parentId === "string" ? data.parentId : null,
+          slug: typeof data.slug === "string" ? data.slug.trim() : undefined,
         };
       });
       setCategories(next.filter((item) => item.name));
@@ -63,7 +81,10 @@ export default function CategoryProductsClient() {
   }, []);
 
   const currentCategory = useMemo(
-    () => categories.find((item) => item.id === categoryId) ?? null,
+    () =>
+      categories.find((item) => item.slug === categoryId) ??
+      categories.find((item) => item.id === categoryId) ??
+      null,
     [categories, categoryId],
   );
 
@@ -124,19 +145,22 @@ export default function CategoryProductsClient() {
   }, [currentCategory, sidebarChildren, products]);
 
   const currentTitle = currentCategory?.name ?? "Danh mục";
-  const breadcrumbItems = useMemo(() => {
+  const breadcrumbItems: { label: string; href?: string }[] = (() => {
     const items: { label: string; href?: string }[] = [
       { label: "Trang chủ", href: "/" },
       { label: "Danh mục sản phẩm", href: "/danh-muc/tat-ca" },
     ];
 
     if (parentCategory?.id && parentCategory.name) {
-      items.push({ label: parentCategory.name, href: `/danh-muc/${parentCategory.id}` });
+      items.push({
+        label: parentCategory.name,
+        href: `/danh-muc/${parentCategory.slug || parentCategory.id}`,
+      });
     }
 
     items.push({ label: currentCategory?.name || "Đang cập nhật" });
     return items;
-  }, [currentCategory?.name, parentCategory?.id, parentCategory?.name]);
+  })();
 
   return (
     <main className="min-h-screen bg-slate-50 flex flex-col">
@@ -153,9 +177,9 @@ export default function CategoryProductsClient() {
               {sidebarChildren.map((child) => (
                 <li key={child.id} className="border-t border-slate-100 first:border-t-0">
                   <Link
-                    href={`/danh-muc/${child.id}`}
+                    href={`/danh-muc/${child.slug || child.id}`}
                     className={`block px-4 py-3 text-sm transition-colors ${
-                      child.id === categoryId
+                      child.slug === categoryId || child.id === categoryId
                         ? "border-l-4 border-red-600 bg-red-50 font-bold text-red-600"
                         : "text-slate-700 hover:bg-slate-50"
                     }`}
@@ -177,13 +201,33 @@ export default function CategoryProductsClient() {
                 {filteredProducts.map((product, index) => {
                   const desc = product.desc ?? "";
                   const preview = desc.length > 100 ? `${desc.slice(0, 100)}...` : desc;
+                  const badgeType = product.badgeType ?? null;
+                  const discountPercent =
+                    typeof product.discountPercent === "number"
+                      ? product.discountPercent
+                      : null;
+                  const isSale = badgeType === "SALE" && discountPercent && discountPercent > 0;
+                  const numericPrice = parsePriceVnd(product.price);
+                  const originalPrice =
+                    isSale && numericPrice && discountPercent < 100
+                      ? Math.round(numericPrice / (1 - discountPercent / 100))
+                      : null;
                   return (
-                    <Link href={`/san-pham/${product.id}`} key={product.id} className="block group">
+                    <Link
+                      href={`/san-pham/${product.slug || product.id}`}
+                      key={product.id}
+                      className="block group"
+                    >
                       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-xl cursor-pointer">
                         <div className="relative h-64 w-full overflow-hidden bg-slate-100">
                           <div className="absolute top-4 left-4 z-20 bg-slate-900/80 backdrop-blur-sm text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider">
                             {product.categoryName ?? ""}
                           </div>
+
+                          <ProductBadge
+                            badgeType={badgeType}
+                            discountPercent={discountPercent}
+                          />
 
                           {product.image ? (
                             <Image
@@ -206,6 +250,18 @@ export default function CategoryProductsClient() {
                           <div className="mt-5 flex justify-between items-center">
                             <span className="text-red-600 font-bold">
                               {product.price ?? "Liên hệ"}{" "}
+                              {isSale ? (
+                                <>
+                                  {originalPrice ? (
+                                    <span className="ml-2 text-xs font-semibold text-slate-400 line-through">
+                                      {formatVnd(originalPrice)}
+                                    </span>
+                                  ) : null}
+                                  <span className="ml-2 text-xs font-bold text-red-600">
+                                    -{Math.round(discountPercent ?? 0)}%
+                                  </span>
+                                </>
+                              ) : null}
                               <span className="text-xs text-slate-400 font-normal">/ m²</span>
                             </span>
                             <div className="text-red-600 font-semibold text-sm uppercase tracking-wider flex items-center">

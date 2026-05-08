@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { addDoc, collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -66,8 +67,15 @@ export function AddCategoryModal({
     setIsLoading(true);
     setError(null);
     try {
+      const baseSlug = generateSlug(name.trim());
+      const slug = await ensureUniqueSlug({
+        db,
+        collectionName: "categories",
+        baseSlug,
+      });
       await addDoc(collection(db, "categories"), {
         name: name.trim(),
+        slug,
         parentId: parentId || null,
       });
       setToast("Đã thêm danh mục thành công.");
@@ -150,7 +158,7 @@ export function AddCategoryModal({
       </div>
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-60 -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
           {toast}
         </div>
       ) : null}

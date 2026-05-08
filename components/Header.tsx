@@ -14,6 +14,7 @@ type SearchSuggestion = {
   id: string;
   name: string;
   image?: string;
+  slug?: string;
 };
 
 export default function Header() {
@@ -25,17 +26,22 @@ export default function Header() {
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [categories, setCategories] = useState<
-    { id: string; name: string; parentId: string | null }[]
+    { id: string; name: string; parentId: string | null; slug?: string }[]
   >([]);
 
   useEffect(() => {
     const unsubscribe = onSnapshot(collection(db, "categories"), (snapshot) => {
       const nextCategories = snapshot.docs.map((docSnap) => {
-        const data = docSnap.data() as { name?: string; parentId?: unknown };
+        const data = docSnap.data() as {
+          name?: string;
+          parentId?: unknown;
+          slug?: unknown;
+        };
         return {
           id: docSnap.id,
           name: String(data.name ?? "").trim(),
           parentId: typeof data.parentId === "string" ? data.parentId : null,
+          slug: typeof data.slug === "string" ? data.slug.trim() : undefined,
         };
       });
       setCategories(nextCategories.filter((item) => item.name));
@@ -106,11 +112,12 @@ export default function Header() {
         if (cancelled) return;
         const matched = snapshot.docs
           .map((docSnap) => {
-            const data = docSnap.data() as { name?: unknown; image?: unknown };
+            const data = docSnap.data() as { name?: unknown; image?: unknown; slug?: unknown };
             return {
               id: docSnap.id,
               name: String(data.name ?? "").trim(),
               image: typeof data.image === "string" ? data.image : undefined,
+              slug: typeof data.slug === "string" ? data.slug : undefined,
             };
           })
           .filter((item) => item.name.toLowerCase().includes(keyword))
@@ -139,8 +146,8 @@ export default function Header() {
     setSuggestions([]);
   }
 
-  function handleSelectSuggestion(id: string) {
-    router.push(`/san-pham/${id}`);
+  function handleSelectSuggestion(idOrSlug: string) {
+    router.push(`/san-pham/${idOrSlug}`);
     setIsSearchOpen(false);
     setSearchQuery("");
     setSuggestions([]);
@@ -184,8 +191,8 @@ export default function Header() {
                   suggestions.map((item) => (
                     <Link
                       key={item.id}
-                      href={`/san-pham/${item.id}`}
-                      onClick={() => handleSelectSuggestion(item.id)}
+                      href={`/san-pham/${item.slug || item.id}`}
+                      onClick={() => handleSelectSuggestion(item.slug || item.id)}
                       className="flex items-center gap-3 border-b border-slate-100 px-4 py-3 transition hover:bg-slate-50"
                     >
                       <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md bg-slate-100">
@@ -247,7 +254,7 @@ export default function Header() {
                   {groupedCategories.map((parent) => (
                     <li key={parent.id} className="group/item relative">
                       <div className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600">
-                        <Link href={`/danh-muc/${parent.id}`} className="flex-1">
+                        <Link href={`/danh-muc/${parent.slug || parent.id}`} className="flex-1">
                           {parent.name}
                         </Link>
                         {parent.children.length > 0 ? (
@@ -260,7 +267,7 @@ export default function Header() {
                             {parent.children.map((child) => (
                               <li key={child.id}>
                                 <Link
-                                  href={`/danh-muc/${child.id}`}
+                                  href={`/danh-muc/${child.slug || child.id}`}
                                   className="block rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600"
                                 >
                                   {child.name}
@@ -294,7 +301,7 @@ export default function Header() {
                       {parent.children.map((child) => (
                         <Link
                           key={child.id}
-                          href={`/danh-muc/${child.id}`}
+                          href={`/danh-muc/${child.slug || child.id}`}
                           className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600"
                         >
                           {child.name}
@@ -339,12 +346,12 @@ export default function Header() {
             <span className="hidden text-sm font-semibold md:inline">Tìm kiếm</span>
           </button>
           <a
-            href="tel:0909123456"
+            href="tel:0905741733"
             className="inline-flex h-9 items-center gap-1.5 rounded-full bg-red-600 px-3 text-xs font-bold text-white shadow-md transition hover:bg-red-700 sm:h-10 sm:px-4 sm:text-sm md:px-6"
           >
             <Phone size={14} />
             <span className="hidden sm:inline">Hotline:</span>
-            <span>0909.123.456</span>
+            <span>0905.741.733</span>
           </a>
         </div>
       </div>

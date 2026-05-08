@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   //output: "export",
   typescript: {
-    //ignoreBuildErrors: true, // Thêm dòng này vào đây
+    //ignoreBuildErrors: true,
   },
   images: {
     unoptimized: true,

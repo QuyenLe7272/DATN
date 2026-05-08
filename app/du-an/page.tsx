@@ -1,6 +1,4 @@
 "use client";
-import { db } from '@/lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
 import React from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
@@ -12,7 +10,7 @@ export default function ProjectsPage() {
     <main className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
       
-      <div className="flex-grow max-w-6xl mx-auto px-4 py-16 w-full">
+      <div className="grow max-w-6xl mx-auto px-4 py-16 w-full">
         <div className="text-center mb-16">
           <h1 className="text-4xl font-extrabold text-slate-900 mb-4 uppercase tracking-tight">
             DỰ ÁN ĐÃ THỰC HIỆN
@@ -50,7 +48,7 @@ export default function ProjectsPage() {
                   {project.title}
                 </h2>
                 <p className="text-slate-600 text-lg leading-relaxed italic">
-                  "{project.description}"
+                  &quot;{project.description}&quot;
                 </p>
                 <div className="pt-4 flex items-center gap-3">
                   <div className="flex -space-x-2">

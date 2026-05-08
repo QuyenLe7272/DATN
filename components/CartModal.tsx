@@ -3,6 +3,7 @@ import React from 'react';
 import { useCart } from '@/store/useCart';
 import Image from 'next/image';
 import Link from 'next/link';
+import ProductBadge from "@/components/ProductBadge";
 
 export default function CartModal() {
   const { items, isCartOpen, closeCart, updateQuantity, removeItem, getTotalItems } = useCart();
@@ -21,7 +22,7 @@ export default function CartModal() {
   if (!isCartOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
       <div className="bg-white w-full max-w-4xl rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Header của Popup */}
@@ -35,14 +36,19 @@ export default function CartModal() {
         </div>
 
         {/* Thân của Popup (Danh sách sản phẩm) */}
-        <div className="p-6 overflow-y-auto flex-grow">
+        <div className="p-6 overflow-y-auto grow">
           {items.length === 0 ? (
             <div className="text-center py-10 text-slate-500">Giỏ hàng đang trống.</div>
           ) : (
             <div className="space-y-4">
               {items.map((item) => (
                 <div key={item.id} className="flex flex-col md:flex-row gap-4 items-center border-b border-slate-100 pb-4">
-                  <div className="relative h-20 w-24 flex-shrink-0 rounded-md overflow-hidden border border-slate-200">
+                  <div className="relative h-20 w-24 shrink-0 rounded-md overflow-hidden border border-slate-200">
+                    <ProductBadge
+                      badgeType={item.badgeType}
+                      discountPercent={item.discountPercent}
+                      className="scale-75"
+                    />
                     <Image
                       src={item.image}
                       alt={item.name}
@@ -51,7 +57,7 @@ export default function CartModal() {
                       className="object-cover"
                     />
                   </div>
-                  <div className="flex-grow text-center md:text-left">
+                  <div className="grow text-center md:text-left">
                     <h3 className="font-bold text-slate-800">{item.name}</h3>
                     <p className="text-red-600 font-medium text-sm mt-1">{item.price} <span className="text-slate-400 font-normal">/ m²</span></p>
                   </div>

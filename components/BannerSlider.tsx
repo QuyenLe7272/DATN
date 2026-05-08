@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 const banners = [
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776739415/banner1_tmc1d5.jpg",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778252151/banner9_u8k78z.png",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778251746/banner7_zbtcsy.jpg",
   "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776783995/banner2_lo2tdm.jpg",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776783995/banner3_qjhpkj.jpg",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1777388824/zkh0dqriz4y1hnqbrsst.webp",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776739415/banner1_tmc1d5.jpg",
 ];
 
 export default function BannerSlider() {

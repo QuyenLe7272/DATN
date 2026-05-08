@@ -9,7 +9,11 @@ export async function generateStaticParams() {
   try {
     const snapshot = await getDocs(collection(db, "categories"));
     const params = snapshot.docs
-      .map((docSnap) => ({ categoryId: docSnap.id }))
+      .map((docSnap) => {
+        const data = docSnap.data() as { slug?: unknown };
+        const slug = typeof data.slug === "string" ? data.slug.trim() : "";
+        return { categoryId: slug || docSnap.id };
+      })
       .filter(({ categoryId }) => categoryId !== RESERVED_CATEGORY_SLUG);
 
     return params;

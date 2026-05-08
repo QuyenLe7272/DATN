@@ -2,7 +2,17 @@
 
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
-import { collection, deleteDoc, doc, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  limit,
+  onSnapshot,
+  query,
+  where,
+  writeBatch,
+} from "firebase/firestore";
 import { Search } from "lucide-react";
 import type { ProductFromFirestore } from "@/components/ProductGrid";
 import { db } from "@/lib/firebase";
@@ -10,6 +20,7 @@ import { AddProductModal } from "./AddProductModal";
 import { EditProductModal } from "./EditProductModal";
 import { AddCategoryModal } from "./AddCategoryModal";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
+import { generateSlug } from "@/lib/slug";
 
 type AdminProductsPanelProps = {
   initialProducts: ProductFromFirestore[];
@@ -32,6 +43,7 @@ export function AdminProductsPanel({
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     setProducts(initialProducts);
@@ -77,6 +89,18 @@ export function AdminProductsPanel({
     });
   }, [products, categories]);
 
+  const badgeTag = (badgeType?: ProductFromFirestore["badgeType"], discountPercent?: number | null) => {
+    if (!badgeType) return null;
+    const base = "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-bold text-white shadow-sm";
+    if (badgeType === "HOT") return <span className={`${base} bg-red-600`}>HOT</span>;
+    if (badgeType === "NEW") return <span className={`${base} bg-blue-600`}>NEW</span>;
+    if (badgeType === "SALE") {
+      const pct = typeof discountPercent === "number" ? Math.round(discountPercent) : null;
+      return <span className={`${base} bg-orange-500`}>{pct ? `SALE ${pct}%` : "SALE"}</span>;
+    }
+    return null;
+  };
+
   const filteredProducts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
     if (!keyword) return sortedProducts;
@@ -102,6 +126,155 @@ export function AdminProductsPanel({
 
   function handleCategorySaved() {
     setToast("Đã thêm danh mục thành công.");
+  }
+
+  async function getUniqueSlugInDb(options: {
+    collectionName: "products" | "categories";
+    baseSlug: string;
+    reserved: Set<string>;
+    excludeDocId?: string;
+  }) {
+    const base = options.baseSlug || "item";
+    let suffix = 0;
+    for (;;) {
+      const candidate = suffix === 0 ? base : `${base}-${suffix}`;
+      const reserveKey = `${options.collectionName}:${candidate}`;
+      if (options.reserved.has(reserveKey)) {
+        suffix += 1;
+        continue;
+      }
+
+      const q = query(
+        collection(db, options.collectionName),
+        where("slug", "==", candidate),
+        limit(1),
+      );
+      const snap = await getDocs(q);
+
+      if (snap.empty) {
+        options.reserved.add(reserveKey);
+        return candidate;
+      }
+
+      const matchedId = snap.docs[0]?.id;
+      if (options.excludeDocId && matchedId === options.excludeDocId) {
+        options.reserved.add(reserveKey);
+        return candidate;
+      }
+
+      suffix += 1;
+      if (suffix > 5000) {
+        throw new Error("Không thể tạo slug duy nhất. Vui lòng thử tên khác.");
+      }
+    }
+  }
+
+  async function handleSyncLegacySlugs() {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try {
+      const [productsSnap, categoriesSnap] = await Promise.all([
+        getDocs(collection(db, "products")),
+        getDocs(collection(db, "categories")),
+      ]);
+
+      const isMissingSlug = (value: unknown) =>
+        value == null || (typeof value === "string" && value.trim() === "");
+
+      const productTargets = productsSnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as { name?: unknown; slug?: unknown };
+          return {
+            id: docSnap.id,
+            name: String(data.name ?? "").trim(),
+            slug: data.slug,
+          };
+        })
+        .filter((item) => item.name && isMissingSlug(item.slug));
+
+      const categoryTargets = categoriesSnap.docs
+        .map((docSnap) => {
+          const data = docSnap.data() as { name?: unknown; slug?: unknown };
+          return {
+            id: docSnap.id,
+            name: String(data.name ?? "").trim(),
+            slug: data.slug,
+          };
+        })
+        .filter((item) => item.name && isMissingSlug(item.slug));
+
+      if (productTargets.length === 0 && categoryTargets.length === 0) {
+        setToast("Không có dữ liệu cũ cần đồng bộ slug.");
+        return;
+      }
+
+      const reserved = new Set<string>();
+      // Seed reserved from DB snapshots (so we don't generate duplicates in-session).
+      productsSnap.docs.forEach((d) => {
+        const s = d.data() as { slug?: unknown };
+        const slug = typeof s.slug === "string" ? s.slug.trim() : "";
+        if (slug) reserved.add(`products:${slug}`);
+      });
+      categoriesSnap.docs.forEach((d) => {
+        const s = d.data() as { slug?: unknown };
+        const slug = typeof s.slug === "string" ? s.slug.trim() : "";
+        if (slug) reserved.add(`categories:${slug}`);
+      });
+
+      const CHUNK_SIZE = 450;
+      let updatedProducts = 0;
+      let updatedCategories = 0;
+
+      // Products
+      for (let cursor = 0; cursor < productTargets.length; cursor += CHUNK_SIZE) {
+        const batch = writeBatch(db);
+        const slice = productTargets.slice(cursor, cursor + CHUNK_SIZE);
+
+        for (const item of slice) {
+          const base = generateSlug(item.name) || "item";
+          const unique = await getUniqueSlugInDb({
+            collectionName: "products",
+            baseSlug: base,
+            reserved,
+            excludeDocId: item.id,
+          });
+          batch.update(doc(db, "products", item.id), { slug: unique });
+          updatedProducts += 1;
+          console.log(`Đã cập nhật slug cho sản phẩm "${item.name}" thành ${unique}`);
+        }
+
+        await batch.commit();
+      }
+
+      // Categories
+      for (let cursor = 0; cursor < categoryTargets.length; cursor += CHUNK_SIZE) {
+        const batch = writeBatch(db);
+        const slice = categoryTargets.slice(cursor, cursor + CHUNK_SIZE);
+
+        for (const item of slice) {
+          const base = generateSlug(item.name) || "item";
+          const unique = await getUniqueSlugInDb({
+            collectionName: "categories",
+            baseSlug: base,
+            reserved,
+            excludeDocId: item.id,
+          });
+          batch.update(doc(db, "categories", item.id), { slug: unique });
+          updatedCategories += 1;
+          console.log(`Đã cập nhật slug cho danh mục "${item.name}" thành ${unique}`);
+        }
+
+        await batch.commit();
+      }
+
+      const message = `Thành công! Đã đồng bộ slug cho ${updatedProducts} sản phẩm và ${updatedCategories} danh mục cũ`;
+      setToast(message);
+      alert(message);
+    } catch (err: unknown) {
+      setToast(err instanceof Error ? err.message : "Không thể đồng bộ slug sản phẩm.");
+    } finally {
+      setIsSyncing(false);
+    }
   }
 
   async function handleDeleteConfirm() {
@@ -151,7 +324,7 @@ export function AdminProductsPanel({
               <button
                 type="button"
                 onClick={() => setCategoryModalOpen(true)}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-400"
               >
                 <span className="text-lg leading-none">+</span>
                 Thêm danh mục
@@ -159,13 +332,15 @@ export function AdminProductsPanel({
               <button
                 type="button"
                 onClick={() => setModalOpen(true)}
-                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-red-600/25 transition hover:bg-red-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-md shadow-red-600/25 transition hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600"
               >
                 <span className="text-lg leading-none">+</span>
                 Thêm sản phẩm mới
               </button>
             </div>
           </div>
+
+          
 
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="overflow-x-auto">
@@ -229,9 +404,10 @@ export function AdminProductsPanel({
                           </div>
                         </td>
                         <td className="max-w-[200px] px-4 py-3 font-medium text-slate-900 sm:max-w-none sm:px-5">
-                          <span className="line-clamp-2">
-                            {product.name ?? "—"}
-                          </span>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="line-clamp-2">{product.name ?? "—"}</span>
+                            {badgeTag(product.badgeType, product.discountPercent ?? null)}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-slate-600 sm:px-5">
                           {isUncategorizedProduct(product) ? (
@@ -305,7 +481,7 @@ export function AdminProductsPanel({
 
       {toast ? (
         <div
-          className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg"
+          className="fixed bottom-6 left-1/2 z-60 -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg"
           role="status"
         >
           {toast}

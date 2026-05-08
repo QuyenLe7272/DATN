@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { collection, doc, onSnapshot, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  onSnapshot,
+  updateDoc,
+} from "firebase/firestore";
 import type { ProductFromFirestore } from "@/components/ProductGrid";
 import { db } from "@/lib/firebase";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import RichTextEditor from "@/components/admin/RichTextEditor";
+import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -18,6 +24,8 @@ type ProductFormState = {
   categoryId: string;
   price: string;
   desc: string;
+  badgeType: "" | "HOT" | "NEW" | "SALE";
+  discountPercent: string;
 };
 
 type EditProductModalProps = {
@@ -40,6 +48,8 @@ export function EditProductModal({
     categoryId: "",
     price: "Liên hệ",
     desc: "",
+    badgeType: "",
+    discountPercent: "",
   });
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [file, setFile] = useState<File | null>(null);
@@ -80,6 +90,13 @@ export function EditProductModal({
       categoryId: product.categoryId ?? "",
       price: product.price ?? "Liên hệ",
       desc: product.desc ?? "",
+      badgeType: product.badgeType === "HOT" || product.badgeType === "NEW" || product.badgeType === "SALE"
+        ? product.badgeType
+        : "",
+      discountPercent:
+        typeof product.discountPercent === "number" && Number.isFinite(product.discountPercent)
+          ? String(product.discountPercent)
+          : "",
     });
     setLongDescription(product.longDescription ?? "");
     setFile(null);
@@ -118,15 +135,30 @@ export function EditProductModal({
         ? await uploadImageToCloudinary(file)
         : (product.image ?? "");
       const name = form.name.trim();
+      const baseSlug = generateSlug(name);
+      const slug = await ensureUniqueSlug({
+        db,
+        collectionName: "products",
+        baseSlug,
+        excludeDocId: product.id,
+      });
       const price = form.price.trim() || "Liên hệ";
       const desc = form.desc.trim();
+      const badgeType = form.badgeType || null;
+      const discountPercent =
+        badgeType === "SALE"
+          ? Number.parseInt(form.discountPercent, 10) || null
+          : null;
 
       await updateDoc(doc(db, "products", product.id), {
         name,
+        slug,
         categoryId: form.categoryId,
         categoryName: matchedCategory.name,
         price,
         desc,
+        badgeType,
+        discountPercent,
         image: imageUrl,
         longDescription,
       });
@@ -136,10 +168,13 @@ export function EditProductModal({
       onSaved?.({
         ...product,
         name,
+        slug,
         categoryId: form.categoryId,
         categoryName: matchedCategory.name,
         price,
         desc,
+        badgeType,
+        discountPercent,
         image: imageUrl,
         longDescription,
       });
@@ -215,6 +250,52 @@ export function EditProductModal({
               />
             </div>
 
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">
+                  Trạng thái (Badge)
+                </label>
+                <select
+                  disabled={isLoading}
+                  value={form.badgeType}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      badgeType: e.target.value as ProductFormState["badgeType"],
+                      discountPercent: e.target.value === "SALE" ? prev.discountPercent : "",
+                    }))
+                  }
+                  className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                >
+                  <option value="">Không có</option>
+                  <option value="HOT">HOT</option>
+                  <option value="NEW">NEW</option>
+                  <option value="SALE">SALE</option>
+                </select>
+              </div>
+
+              {form.badgeType === "SALE" ? (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700">% Giảm giá</label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={99}
+                    disabled={isLoading}
+                    value={form.discountPercent}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, discountPercent: e.target.value }))
+                    }
+                    className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+                    placeholder="Ví dụ: 20"
+                  />
+                </div>
+              ) : (
+                <div />
+              )}
+            </div>
+
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả</label>
               <textarea
@@ -272,7 +353,7 @@ export function EditProductModal({
       </div>
 
       {toast ? (
-        <div className="fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
+        <div className="fixed bottom-6 left-1/2 z-60 -translate-x-1/2 rounded-xl border border-emerald-200 bg-emerald-50 px-5 py-3 text-sm font-medium text-emerald-900 shadow-lg">
           {toast}
         </div>
       ) : null}

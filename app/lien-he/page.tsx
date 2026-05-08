@@ -7,7 +7,7 @@ export default function ContactPage() {
     <main className="min-h-screen bg-slate-50 flex flex-col">
       <Header />
       
-      <div className="flex-grow max-w-4xl mx-auto px-4 py-16 w-full">
+      <div className="grow max-w-4xl mx-auto px-4 py-16 w-full">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-extrabold text-slate-900 mb-4">THÔNG TIN LIÊN HỆ</h1>
           <p className="text-lg text-slate-600">Chúng tôi luôn sẵn sàng lắng nghe và tư vấn giải pháp quảng cáo tốt nhất cho bạn.</p>
@@ -25,7 +25,7 @@ export default function ContactPage() {
                   <span className="text-2xl">📍</span>
                   <div>
                     <p className="text-sm text-slate-400 font-semibold mb-1">Địa chỉ văn phòng & xưởng</p>
-                    <p className="text-lg">Khu vực Quận Hải Châu, TP. Đà Nẵng</p>
+                    <p className="text-lg">434 Hùng Vương, Thanh Khê, Đà Nẵng, Việt Nam</p>
                   </div>
                 </div>
 
@@ -33,7 +33,7 @@ export default function ContactPage() {
                   <span className="text-2xl">📞</span>
                   <div>
                     <p className="text-sm text-slate-400 font-semibold mb-1">Hotline tư vấn (24/7)</p>
-                    <p className="text-lg font-bold text-red-400">0909.123.456</p>
+                    <p className="text-lg font-bold text-red-400">0905.741.733</p>
                   </div>
                 </div>
 
@@ -41,7 +41,7 @@ export default function ContactPage() {
                   <span className="text-2xl">✉️</span>
                   <div>
                     <p className="text-sm text-slate-400 font-semibold mb-1">Email hỗ trợ</p>
-                    <p className="text-lg">lienhe@in1991.com</p>
+                    <p className="text-lg">huynhhieutran@gmail.com</p>
                   </div>
                 </div>
               </div>
