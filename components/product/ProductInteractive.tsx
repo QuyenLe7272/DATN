@@ -7,9 +7,10 @@ import Link from "next/link";
 import { useCart } from "@/store/useCart";
 import ProductBadge, { type ProductBadgeType } from "@/components/ProductBadge";
 
-type ProductData = {
+export type ProductData = {
   id: string;
   name?: string;
+  slug?: string;
   categoryName?: string;
   badgeType?: ProductBadgeType;
   discountPercent?: number | null;
@@ -22,9 +23,20 @@ type ProductData = {
 
 type ProductInteractiveProps = {
   product: ProductData;
+  relatedProducts?: ProductData[];
 };
 
-export default function ProductInteractive({ product }: ProductInteractiveProps) {
+export default function ProductInteractive({
+  product,
+  relatedProducts = [],
+}: ProductInteractiveProps) {
+  const resolvedRelatedProducts = useMemo(() => {
+    if (!Array.isArray(relatedProducts) || relatedProducts.length === 0) {
+      return [] as ProductData[];
+    }
+    return relatedProducts;
+  }, [relatedProducts]);
+
   const addToCart = useCart((state) => state.addToCart);
   const openCart = useCart((state) => state.openCart);
   const [isZoomed, setIsZoomed] = useState(false);
@@ -41,6 +53,16 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
     if (selectedImage && productImages.includes(selectedImage)) return selectedImage;
     return productImages[0] ?? "";
   }, [productImages, selectedImage]);
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "development") {
+      console.log(
+        "[ProductInteractive] relatedProducts từ Server (không dùng mock):",
+        resolvedRelatedProducts.length,
+        "mục",
+      );
+    }
+  }, [resolvedRelatedProducts]);
 
   useEffect(() => {
     if (!isZoomed) return;
@@ -78,8 +100,8 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 items-start">
-        <div className="w-full md:max-w-lg md:sticky md:top-24">
+      <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-3 lg:gap-12">
+        <div className="w-full md:col-span-1 md:max-w-lg md:sticky md:top-24">
           {productImages.length > 0 ? (
             <div className="space-y-4">
               <div
@@ -135,7 +157,7 @@ export default function ProductInteractive({ product }: ProductInteractiveProps)
           )}
         </div>
 
-        <div className="flex flex-col">
+        <div className="flex flex-col md:col-span-2">
           <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-red-600">{categoryName}</p>
           <h1 className="text-3xl font-extrabold text-slate-900 md:text-4xl leading-tight">{name}</h1>
           <p className="mt-3 text-3xl font-bold text-red-600">{price}</p>

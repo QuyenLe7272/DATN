@@ -218,14 +218,6 @@ export default function Footer() {
         {/* —— Thanh đáy —— */}
         <div className="mt-14 flex flex-col gap-5 border-t border-slate-800 pt-10 text-sm lg:mt-16 lg:flex-row lg:items-center lg:justify-between">
           <p className="text-center text-gray-400 lg:text-left">© 2026 Xưởng In 1991. All rights reserved.</p>
-          <nav className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3 lg:justify-end">
-            <Link href="#" className="text-gray-400 transition-colors hover:text-white">
-              Chính sách bảo mật
-            </Link>
-            <Link href="#" className="text-gray-400 transition-colors hover:text-white">
-              Điều khoản dịch vụ
-            </Link>
-          </nav>
         </div>
       </div>
     </footer>

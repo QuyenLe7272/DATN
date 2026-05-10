@@ -1,5 +1,6 @@
 import Header from "@/components/Header";
 import BannerSlider from "@/components/BannerSlider";
+import HomeIntro from "@/components/HomeIntro";
 import ProductGrid from "@/components/ProductGrid";
 import Footer from "@/components/Footer";
 import { db } from "@/lib/firebase";
@@ -27,7 +28,12 @@ export default async function Home() {
 
       <div className="flex-grow">
         <BannerSlider />
-        <ProductGrid initialProducts={realProducts} projects={projects} />
+        <HomeIntro />
+        <ProductGrid
+          initialProducts={realProducts}
+          projects={projects}
+          hideHeader
+        />
       </div>
 
       <Footer />

@@ -1,89 +1,94 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useCallback, useEffect, useState } from "react";
+
+const AUTO_PLAY_MS = 5000;
 
 const banners = [
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778252151/banner9_u8k78z.png",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778251746/banner7_zbtcsy.jpg",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776783995/banner2_lo2tdm.jpg",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1776739415/banner1_tmc1d5.jpg",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778389438/bannerrealmaume_yjddbr.jpg",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778389439/bannerreal2_td0igl.jpg",
 ];
+
+const navBtnClass =
+  "flex absolute top-1/2 z-30 h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/20 backdrop-blur-md transition-all duration-300 hover:scale-110 hover:bg-white/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white/80 sm:h-12 sm:w-12";
 
 export default function BannerSlider() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
+    if (banners.length <= 1) return;
+    const id = window.setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
-    }, 4000);
+    }, AUTO_PLAY_MS);
+    return () => window.clearInterval(id);
+  }, [currentIndex]);
 
-    return () => window.clearInterval(timer);
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prev) => (prev - 1 + banners.length) % banners.length);
+  }, []);
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prev) => (prev + 1) % banners.length);
   }, []);
 
   return (
-    <div className="relative w-full overflow-hidden group bg-slate-900 min-h-[400px] md:min-h-[600px]">
-      {banners.map((image, index) => (
+    <div className="relative aspect-[16/9] w-full overflow-hidden bg-slate-900 md:aspect-auto md:h-[75vh] md:min-h-[500px] md:max-h-[650px] md:bg-slate-50">
+      {banners.map((src, index) => (
         <div
-          key={image}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            index === currentIndex ? "opacity-100 z-10" : "opacity-0 z-0"
+          key={src}
+          className={`absolute inset-0 z-0 transition-opacity duration-1000 ease-in-out ${
+            index === currentIndex ? "z-10 opacity-100" : "opacity-0"
           }`}
         >
-          <img
-            src={image}
-            alt={`Banner ${index + 1}`}
-            className="w-full h-full object-cover object-center"
-          />
+          <div className="h-full w-full md:relative md:flex md:items-center md:justify-center md:overflow-hidden md:bg-transparent">
+            <img
+              src={src}
+              alt={`Banner ${index + 1}`}
+              className="h-full w-full object-cover object-center md:object-contain md:object-center"
+            />
+          </div>
         </div>
       ))}
 
-      {/* Lớp phủ đen mờ ưu tiên mobile */}
-      <div className="absolute inset-0 bg-black/60 md:bg-black/40 z-20" />
+      {banners.length > 1 ? (
+        <>
+          <button
+            type="button"
+            aria-label="Banner trước"
+            onClick={handlePrev}
+            className={`${navBtnClass} left-2 sm:left-4`}
+          >
+            <i className="fa-solid fa-chevron-left text-base text-black sm:text-lg" aria-hidden />
+          </button>
+          <button
+            type="button"
+            aria-label="Banner sau"
+            onClick={handleNext}
+            className={`${navBtnClass} right-2 sm:right-4`}
+          >
+            <i className="fa-solid fa-chevron-right text-base text-black sm:text-lg" aria-hidden />
+          </button>
+        </>
+      ) : null}
 
-      {/* Nội dung chữ: căn giữa dọc, ưu tiên đọc tốt trên mobile */}
-      <div className="absolute inset-0 z-30 flex flex-col justify-center items-center py-12 px-4 text-center">
-        <div className="max-w-7xl mx-auto space-y-4">
-          <h1 className="text-3xl md:text-5xl lg:text-6xl font-extrabold text-white leading-snug md:leading-tight drop-shadow-lg">
-            THIẾT KẾ & THI CÔNG <br className="hidden md:block" />
-            <span className="text-red-500 mt-2 block">BẢNG HIỆU QUẢNG CÁO</span>
-          </h1>
-          
-          <p className="text-slate-300 text-sm md:text-lg max-w-2xl mx-auto line-clamp-2">
-            Giải pháp quảng cáo toàn diện, nâng tầm thương hiệu của bạn với chi phí tối ưu nhất tại Đà Nẵng.
-          </p>
-          
-          <div className="flex flex-row items-center justify-center gap-2 w-full px-2 mb-8">
-            <Link
-              href="/lien-he"
-              className="flex-1 md:flex-none bg-red-600 text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap shadow-lg shadow-red-600/30"
-            >
-              <span className="md:hidden">Báo Giá</span>
-              <span className="hidden md:inline">Nhận Báo Giá Ngay</span>
-            </Link>
-            <Link
-              href="/du-an"
-              className="flex-1 md:flex-none border border-white text-white py-2.5 px-2 md:px-8 md:py-3 rounded-full font-bold text-[13px] md:text-base text-center whitespace-nowrap"
-            >
-              <span className="md:hidden">Dự Án</span>
-              <span className="hidden md:inline">Xem Các Dự Án</span>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      <div className="absolute bottom-4 left-1/2 z-40 flex -translate-x-1/2 gap-2">
+      <div
+        className="absolute bottom-6 left-1/2 z-20 flex -translate-x-1/2 gap-3"
+        role="tablist"
+        aria-label="Chọn banner"
+      >
         {banners.map((_, index) => (
           <button
             key={index}
             type="button"
+            role="tab"
+            aria-selected={index === currentIndex}
+            aria-label={`Banner ${index + 1}`}
             onClick={() => setCurrentIndex(index)}
             className={`transition-all ${
               index === currentIndex
-                ? "bg-red-600 w-8 h-2 rounded-full"
-                : "bg-white/70 w-2 h-2 rounded-full"
+                ? "h-2 w-8 rounded-full bg-white"
+                : "h-2 w-2 cursor-pointer rounded-full bg-white/50 hover:bg-white/80"
             }`}
-            aria-label={`Chọn banner ${index + 1}`}
           />
         ))}
       </div>
