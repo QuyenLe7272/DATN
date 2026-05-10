@@ -168,30 +168,8 @@ export default function CategoryProductsClient() {
       <div className="max-w-7xl mx-auto w-full px-4 py-8 grow">
         <Breadcrumbs items={breadcrumbItems} />
 
-        <div className="flex flex-col md:flex-row gap-8 py-8">
-          <aside className="w-full md:w-1/4">
-            <div className="rounded-t-md bg-red-600 px-4 py-3 font-bold uppercase text-white">
-              {activeParent?.name ?? "Danh mục"}
-            </div>
-            <ul className="overflow-hidden rounded-b-md border border-slate-200 bg-white">
-              {sidebarChildren.map((child) => (
-                <li key={child.id} className="border-t border-slate-100 first:border-t-0">
-                  <Link
-                    href={`/danh-muc/${child.slug || child.id}`}
-                    className={`block px-4 py-3 text-sm transition-colors ${
-                      child.slug === categoryId || child.id === categoryId
-                        ? "border-l-4 border-red-600 bg-red-50 font-bold text-red-600"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                  >
-                    {child.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <section className="w-full md:w-3/4">
+        <div className="py-8">
+          <section className="w-full">
             <h1 className="mb-6 text-3xl font-extrabold text-slate-900">{currentTitle}</h1>
 
             {filteredProducts.length === 0 ? (
