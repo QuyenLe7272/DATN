@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 import type { ProductFromFirestore } from "@/components/ProductGrid";
-import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
+import { createSlug, ensureUniqueSlug } from "@/lib/slug";
 
 type AddProductModalProps = {
   isOpen: boolean;
@@ -121,12 +121,16 @@ export function AddProductModal({
       const secureUrl = await uploadImageToCloudinary(file);
 
       const name = form.name.trim();
-      const baseSlug = generateSlug(name);
-      const slug = await ensureUniqueSlug({
+      const baseSlug = createSlug(name);
+      const slug = (
+        await ensureUniqueSlug({
         db,
         collectionName: "products",
         baseSlug,
-      });
+        })
+      )
+        .trim()
+        .toLowerCase();
       const price = form.price.trim() || "Liên hệ";
       const desc = form.desc.trim();
       const badgeType = form.badgeType || null;

@@ -429,3 +429,9 @@ export default function ProductDetailPage() {
     </main>
   );
 }
+
+export async function generateStaticParams() {
+  return [];
+}
+
+export const dynamicParams = true;

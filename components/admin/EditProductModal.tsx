@@ -11,7 +11,7 @@ import type { ProductFromFirestore } from "@/components/ProductGrid";
 import { db } from "@/lib/firebase";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 import RichTextEditor from "@/components/admin/RichTextEditor";
-import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
+import { createSlug, ensureUniqueSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -135,13 +135,17 @@ export function EditProductModal({
         ? await uploadImageToCloudinary(file)
         : (product.image ?? "");
       const name = form.name.trim();
-      const baseSlug = generateSlug(name);
-      const slug = await ensureUniqueSlug({
+      const baseSlug = createSlug(name);
+      const slug = (
+        await ensureUniqueSlug({
         db,
         collectionName: "products",
         baseSlug,
         excludeDocId: product.id,
-      });
+        })
+      )
+        .trim()
+        .toLowerCase();
       const price = form.price.trim() || "Liên hệ";
       const desc = form.desc.trim();
       const badgeType = form.badgeType || null;
