@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { addDoc, collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
+import { createSlug, ensureUniqueSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -15,12 +15,14 @@ type AddCategoryModalProps = {
   onClose: () => void;
   isOpen?: boolean;
   onSaved?: () => void;
+  excludedRootIds?: string[];
 };
 
 export function AddCategoryModal({
   onClose,
   isOpen = true,
   onSaved,
+  excludedRootIds = [],
 }: AddCategoryModalProps) {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState("");
@@ -44,13 +46,14 @@ export function AddCategoryModal({
         next.filter(
           (category) =>
             category.name &&
-            (!category.parentId || category.parentId === "uncategorized"),
+            (!category.parentId || category.parentId === "uncategorized") &&
+            !excludedRootIds.includes(category.id),
         ),
       );
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [excludedRootIds]);
 
   useEffect(() => {
     if (!toast) return;
@@ -67,14 +70,15 @@ export function AddCategoryModal({
     setIsLoading(true);
     setError(null);
     try {
-      const baseSlug = generateSlug(name.trim());
+      const trimmedName = name.trim();
+      const baseSlug = createSlug(trimmedName);
       const slug = await ensureUniqueSlug({
         db,
         collectionName: "categories",
         baseSlug,
       });
       await addDoc(collection(db, "categories"), {
-        name: name.trim(),
+        name: trimmedName,
         slug,
         parentId: parentId || null,
       });

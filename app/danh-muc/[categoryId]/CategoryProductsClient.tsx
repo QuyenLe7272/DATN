@@ -4,12 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { collection, doc, getDoc, onSnapshot } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { db } from "@/lib/firebase";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductBadge from "@/components/ProductBadge";
+import { buildCategoryHref, resolveCategorySlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -46,11 +47,10 @@ function formatVnd(amount: number) {
 /** Trang danh mục động — logic UI giữ trong client component. */
 export default function CategoryProductsClient() {
   const params = useParams<{ categoryId: string }>();
-  const categoryId = params.categoryId;
+  const categoryId = String(params.categoryId ?? "").trim();
 
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
-  const [parentCategory, setParentCategory] = useState<CategoryItem | null>(null);
 
   useEffect(() => {
     const unsubscribeCategories = onSnapshot(collection(db, "categories"), (snapshot) => {
@@ -82,45 +82,16 @@ export default function CategoryProductsClient() {
 
   const currentCategory = useMemo(
     () =>
-      categories.find((item) => item.slug === categoryId) ??
+      categories.find((item) => resolveCategorySlug(item) === categoryId) ??
       categories.find((item) => item.id === categoryId) ??
       null,
     [categories, categoryId],
   );
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function fetchParentCategory() {
-      if (!currentCategory?.parentId) {
-        setParentCategory(null);
-        return;
-      }
-
-      try {
-        const snap = await getDoc(doc(db, "categories", currentCategory.parentId));
-        if (!isActive) return;
-        if (!snap.exists()) {
-          setParentCategory(null);
-          return;
-        }
-        const data = snap.data() as { name?: unknown; parentId?: unknown };
-        setParentCategory({
-          id: snap.id,
-          name: String(data.name ?? "").trim(),
-          parentId: typeof data.parentId === "string" ? data.parentId : null,
-        });
-      } catch {
-        if (!isActive) return;
-        setParentCategory(null);
-      }
-    }
-
-    fetchParentCategory();
-    return () => {
-      isActive = false;
-    };
-  }, [currentCategory?.parentId]);
+  const parentCategory = useMemo(() => {
+    if (!currentCategory?.parentId) return null;
+    return categories.find((item) => item.id === currentCategory.parentId) ?? null;
+  }, [categories, currentCategory]);
 
   const activeParent = useMemo(() => {
     if (!currentCategory) return null;
@@ -151,10 +122,10 @@ export default function CategoryProductsClient() {
       { label: "Danh mục sản phẩm", href: "/danh-muc/tat-ca" },
     ];
 
-    if (parentCategory?.id && parentCategory.name) {
+    if (parentCategory?.name) {
       items.push({
         label: parentCategory.name,
-        href: `/danh-muc/${parentCategory.slug || parentCategory.id}`,
+        href: buildCategoryHref(parentCategory),
       });
     }
 

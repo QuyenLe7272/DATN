@@ -8,6 +8,7 @@ import { collection, getDocs, onSnapshot } from "firebase/firestore";
 import { Phone, Search, ShoppingCart, X } from "lucide-react";
 import { useCart } from "@/store/useCart";
 import { db } from "@/lib/firebase";
+import { buildCategoryHref } from "@/lib/slug";
 import CartModal from "./CartModal";
 
 type SearchSuggestion = {
@@ -16,6 +17,12 @@ type SearchSuggestion = {
   image?: string;
   slug?: string;
 };
+
+const FEATURED_PARENT_NAMES = [
+  "Bảng Hiệu Quảng Cáo",
+  "Biển Quảng Cáo",
+  "Hộp Đèn",
+] as const;
 
 export default function Header() {
   const router = useRouter();
@@ -60,15 +67,9 @@ export default function Header() {
     }));
   }, [categories]);
 
-  const featuredParentNames = [
-    "Bảng Hiệu Quảng Cáo",
-    "Biển Quảng Cáo",
-    "Hộp Đèn",
-  ];
-
   const featuredParents = useMemo(
     () =>
-      featuredParentNames
+      FEATURED_PARENT_NAMES
         .map((name) =>
           groupedCategories.find(
             (category) => category.name.toLowerCase() === name.toLowerCase(),
@@ -227,14 +228,13 @@ export default function Header() {
         {/* --- KHỐI LOGO --- */}
         {/* Thêm h-full để báo cho thẻ Link biết nó cao bằng Header */}
         <Link href="/" className="flex h-full shrink-0 items-center">
-          <img
+          <Image
             src="/icon.jpg"
             alt="Logo in1991"
             width={200}
             height={200}
             className="h-full w-auto object-contain"
-            loading="eager"
-            decoding="async"
+            priority
           />
         </Link>
 
@@ -254,7 +254,7 @@ export default function Header() {
                   {groupedCategories.map((parent) => (
                     <li key={parent.id} className="group/item relative">
                       <div className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600">
-                        <Link href={`/danh-muc/${parent.slug || parent.id}`} className="flex-1">
+                        <Link href={buildCategoryHref(parent)} className="flex-1">
                           {parent.name}
                         </Link>
                         {parent.children.length > 0 ? (
@@ -267,7 +267,7 @@ export default function Header() {
                             {parent.children.map((child) => (
                               <li key={child.id}>
                                 <Link
-                                  href={`/danh-muc/${child.slug || child.id}`}
+                                  href={buildCategoryHref(child)}
                                   className="block rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600"
                                 >
                                   {child.name}
@@ -301,7 +301,7 @@ export default function Header() {
                       {parent.children.map((child) => (
                         <Link
                           key={child.id}
-                          href={`/danh-muc/${child.slug || child.id}`}
+                          href={buildCategoryHref(child)}
                           className="block rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-red-600"
                         >
                           {child.name}

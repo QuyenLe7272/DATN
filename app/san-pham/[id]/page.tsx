@@ -31,6 +31,7 @@ import {
   sortRelatedProductsForDetail,
   type RelatedProductSortable,
 } from '@/lib/sortRelatedProducts';
+import { buildCategoryHref } from '@/lib/slug';
 import 'react-quill-new/dist/quill.snow.css';
 
 const MAX_RELATED_PRODUCTS = 6;
@@ -39,6 +40,11 @@ type ProductPageProps = {
   params: Promise<{
     id: string;
   }>;
+};
+
+type CategoryLookupRow = CategoryTreeRow & {
+  name?: string;
+  slug?: string;
 };
 
 export async function generateStaticParams() {
@@ -118,14 +124,16 @@ export default async function ProductDetail({ params }: ProductPageProps) {
   const currentCategoryName =
     typeof product.categoryName === 'string' ? product.categoryName.trim() : undefined;
 
-  const categoriesById = new Map<string, CategoryTreeRow>();
+  const categoriesById = new Map<string, CategoryLookupRow>();
   try {
     const categoriesSnap = await getDocs(collection(db, 'categories'));
     categoriesSnap.docs.forEach((catDoc) => {
       const data = catDoc.data() as Record<string, unknown>;
       categoriesById.set(catDoc.id, {
         id: catDoc.id,
+        name: typeof data.name === 'string' ? data.name.trim() : undefined,
         parentId: parseCategoryParentId(data.parentId),
+        slug: typeof data.slug === 'string' ? data.slug.trim() : undefined,
       });
     });
   } catch {
@@ -138,6 +146,10 @@ export default async function ProductDetail({ params }: ProductPageProps) {
   const familyMemberCategoryIds = currentFamilyCategoryId
     ? getFamilyMemberCategoryIds(categoriesById.values(), currentFamilyCategoryId)
     : [];
+  const currentCategory = categoryId ? categoriesById.get(categoryId) ?? null : null;
+  const currentCategoryHref = currentCategory ? buildCategoryHref(currentCategory) : '/danh-muc/tat-ca';
+  const currentCategoryLabel =
+    currentCategory?.name || currentCategoryName || 'Danh mục';
 
   const mapRelatedDoc = (d: QueryDocumentSnapshot): RelatedProductSortable => {
     const data = d.data() as Record<string, unknown>;
@@ -264,8 +276,8 @@ export default async function ProductDetail({ params }: ProductPageProps) {
               items={[
                 { label: 'Trang chủ', href: '/' },
                 {
-                  label: 'Danh mục',
-                  href: product?.categoryId ? `/danh-muc/${product.categoryId}` : '/danh-muc/tat-ca',
+                  label: currentCategoryLabel,
+                  href: currentCategoryHref,
                 },
                 { label: product?.name || 'Chi tiết sản phẩm' },
               ]}

@@ -7,13 +7,15 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  query,
   updateDoc,
   writeBatch,
+  where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { DeleteConfirmModal } from "./DeleteConfirmModal";
 import { AddCategoryModal } from "./AddCategoryModal";
-import { ensureUniqueSlug, generateSlug } from "@/lib/slug";
+import { createSlug, ensureUniqueSlug } from "@/lib/slug";
 
 type CategoryItem = {
   id: string;
@@ -26,6 +28,7 @@ type EditCategoryModalProps = {
   isOpen: boolean;
   category: CategoryItem | null;
   categories: CategoryItem[];
+  detachedChildIds?: string[];
   onClose: () => void;
   onSaved: () => void;
 };
@@ -34,6 +37,7 @@ function EditCategoryModal({
   isOpen,
   category,
   categories,
+  detachedChildIds = [],
   onClose,
   onSaved,
 }: EditCategoryModalProps) {
@@ -43,6 +47,7 @@ function EditCategoryModal({
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const detachedChildIdSet = useMemo(() => new Set(detachedChildIds), [detachedChildIds]);
 
   const parentCandidates = useMemo(
     () =>
@@ -50,9 +55,10 @@ function EditCategoryModal({
         (item) =>
           !item.parentId &&
           item.id !== "uncategorized" &&
+          !detachedChildIdSet.has(item.id) &&
           item.id !== category?.id, // chặn tự làm cha chính nó
       ),
-    [categories, category?.id],
+    [categories, category?.id, detachedChildIdSet],
   );
 
   const filteredParents = useMemo(
@@ -89,7 +95,7 @@ function EditCategoryModal({
       const isDemoting = currentParentId === null && newParentId !== null;
       const currentChildren = categories.filter((item) => item.parentId === category.id);
 
-      const baseSlug = generateSlug(trimmedName);
+      const baseSlug = createSlug(trimmedName);
       const slug = await ensureUniqueSlug({
         db,
         collectionName: "categories",
@@ -239,6 +245,9 @@ export function AdminCategoriesPanel() {
   const [editingCategory, setEditingCategory] = useState<CategoryItem | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [detachedChildIds, setDetachedChildIds] = useState<string[]>([]);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [categoryToDeleteId, setCategoryToDeleteId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{
     id: string;
@@ -267,14 +276,30 @@ export function AdminCategoriesPanel() {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useEffect(() => {
+    setDetachedChildIds((current) => {
+      const next = current.filter((id) =>
+        categories.some((category) => category.id === id && category.parentId === null),
+      );
+      return next.length === current.length ? current : next;
+    });
+  }, [categories]);
+
+  const detachedChildIdSet = useMemo(() => new Set(detachedChildIds), [detachedChildIds]);
+
   const parentCategories = useMemo(
     () =>
       categories
-        .filter((category) => !category.parentId && category.id !== "uncategorized")
+        .filter(
+          (category) =>
+            !category.parentId &&
+            category.id !== "uncategorized" &&
+            !detachedChildIdSet.has(category.id),
+        )
         .filter((category) =>
           category.name.toLowerCase().includes(search.trim().toLowerCase()),
         ),
-    [categories, search],
+    [categories, search, detachedChildIdSet],
   );
 
   const childCategories = useMemo(
@@ -282,20 +307,27 @@ export function AdminCategoriesPanel() {
     [categories],
   );
 
-  async function handleDeleteParent(parent: CategoryItem) {
-    const hasChildren = childCategories.some((child) => child.parentId === parent.id);
-    if (hasChildren) {
-      alert("Không thể xóa! Vui lòng chuyển hoặc xóa các danh mục con bên trong trước.");
-      return;
-    }
-    setDeleteTarget({ id: parent.id, name: parent.name, type: "parent" });
+  const uncategorizedChildren = useMemo(
+    () =>
+      categories.filter(
+        (category) =>
+          category.id !== "uncategorized" &&
+          (category.parentId === "uncategorized" || detachedChildIdSet.has(category.id)),
+      ),
+    [categories, detachedChildIdSet],
+  );
+
+  function closeConfirmModal() {
+    setIsConfirmModalOpen(false);
+    setCategoryToDeleteId(null);
   }
 
-  async function handleDeleteConfirm() {
-    if (!deleteTarget || deletingId) return;
-    setDeletingId(deleteTarget.id);
+  async function deleteCategory(target: Pick<CategoryItem, "id" | "name">) {
+    if (deletingId) return;
+    setDeletingId(target.id);
     try {
-      await deleteDoc(doc(db, "categories", deleteTarget.id));
+      await deleteDoc(doc(db, "categories", target.id));
+      setCategories((current) => current.filter((category) => category.id !== target.id));
       setToast("Đã xóa danh mục.");
       setDeleteTarget(null);
     } catch {
@@ -305,50 +337,113 @@ export function AdminCategoriesPanel() {
     }
   }
 
+  async function handleDeleteParent(parent: CategoryItem) {
+    const hasChildren = childCategories.some((child) => child.parentId === parent.id);
+    if (!hasChildren) {
+      setDeleteTarget({ id: parent.id, name: parent.name, type: "parent" });
+      return;
+    }
+    setCategoryToDeleteId(parent.id);
+    setIsConfirmModalOpen(true);
+  }
+
+  async function handleDeleteConfirm() {
+    if (!deleteTarget || deletingId) return;
+    await deleteCategory(deleteTarget);
+  }
+
+  async function handleConfirmDelete() {
+    if (!categoryToDeleteId || deletingId) return;
+
+    setDeletingId(categoryToDeleteId);
+    try {
+      const childrenSnapshot = await getDocs(
+        query(collection(db, "categories"), where("parentId", "==", categoryToDeleteId)),
+      );
+      const movedChildIds = childrenSnapshot.docs.map((docSnap) => docSnap.id);
+      const movedChildIdSet = new Set(movedChildIds);
+      const batch = writeBatch(db);
+
+      childrenSnapshot.docs.forEach((docSnap) => {
+        batch.update(docSnap.ref, { parentId: null });
+      });
+      batch.delete(doc(db, "categories", categoryToDeleteId));
+      await batch.commit();
+
+      setDetachedChildIds((current) => [...new Set([...current, ...movedChildIds])]);
+      setCategories((current) =>
+        current
+          .filter((category) => category.id !== categoryToDeleteId)
+          .map((category) =>
+            movedChildIdSet.has(category.id) ? { ...category, parentId: null } : category,
+          ),
+      );
+      setToast("Đã xóa danh mục.");
+    } catch {
+      setToast("Không thể xóa danh mục.");
+    } finally {
+      setDeletingId(null);
+      closeConfirmModal();
+    }
+  }
+
   async function handleSyncLegacySlugs() {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
       const snapshot = await getDocs(collection(db, "categories"));
       const existing = new Set<string>();
-      snapshot.docs.forEach((docSnap) => {
-        const data = docSnap.data() as { slug?: unknown };
-        const slug = typeof data.slug === "string" ? data.slug.trim() : "";
-        if (slug) existing.add(slug);
-      });
-
       const targets = snapshot.docs
         .map((docSnap) => {
           const data = docSnap.data() as { name?: unknown; slug?: unknown };
           const name = String(data.name ?? "").trim();
-          const slug = typeof data.slug === "string" ? data.slug.trim() : "";
-          return { id: docSnap.id, name, hasSlug: Boolean(slug) };
+          const currentSlug = typeof data.slug === "string" ? createSlug(data.slug) : "";
+          return { id: docSnap.id, name, currentSlug };
         })
-        .filter((item) => item.name && !item.hasSlug);
+        .filter((item) => item.name);
 
       if (targets.length === 0) {
-        setToast("Không có danh mục nào cần đồng bộ slug.");
+        setToast("Không có danh mục nào có thể đồng bộ slug.");
         return;
       }
 
       let updatedCount = 0;
       let cursor = 0;
       const CHUNK_SIZE = 450;
+      const updates = targets.map((item) => {
+        const base = createSlug(item.name) || "item";
+        let candidate = base;
+        let suffix = 0;
+        while (existing.has(candidate)) {
+          suffix += 1;
+          candidate = `${base}-${suffix}`;
+        }
+        existing.add(candidate);
+        return {
+          id: item.id,
+          nextSlug: candidate,
+          shouldUpdate: item.currentSlug !== candidate,
+        };
+      });
 
-      while (cursor < targets.length) {
+      if (updates.every((item) => !item.shouldUpdate)) {
+        setToast("Slug danh mục đã được đồng bộ sẵn.");
+        return;
+      }
+
+      while (cursor < updates.length) {
+        const slice = updates.slice(cursor, cursor + CHUNK_SIZE);
+        const pendingUpdates = slice.filter((item) => item.shouldUpdate);
+
+        if (pendingUpdates.length === 0) {
+          cursor += CHUNK_SIZE;
+          continue;
+        }
+
         const batch = writeBatch(db);
-        const slice = targets.slice(cursor, cursor + CHUNK_SIZE);
 
-        slice.forEach((item) => {
-          const base = generateSlug(item.name) || "item";
-          let candidate = base;
-          let suffix = 0;
-          while (existing.has(candidate)) {
-            suffix += 1;
-            candidate = `${base}-${suffix}`;
-          }
-          existing.add(candidate);
-          batch.update(doc(db, "categories", item.id), { slug: candidate });
+        pendingUpdates.forEach((item) => {
+          batch.update(doc(db, "categories", item.id), { slug: item.nextSlug });
           updatedCount += 1;
         });
 
@@ -406,42 +501,39 @@ export function AdminCategoriesPanel() {
                 <h2 className="text-base font-bold text-slate-900">Chưa xếp loại</h2>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {childCategories.filter((child) => child.parentId === "uncategorized").length ===
-                0 ? (
+                {uncategorizedChildren.length === 0 ? (
                   <span className="text-sm text-slate-400">Không có danh mục con mồ côi</span>
                 ) : (
-                  childCategories
-                    .filter((child) => child.parentId === "uncategorized")
-                    .map((child) => (
-                      <div
-                        key={child.id}
-                        className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                  uncategorizedChildren.map((child) => (
+                    <div
+                      key={child.id}
+                      className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700"
+                    >
+                      <span>{child.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingCategory(child)}
+                        className="text-slate-400 transition hover:text-slate-700"
+                        title="Sửa"
                       >
-                        <span>{child.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => setEditingCategory(child)}
-                          className="text-slate-400 transition hover:text-slate-700"
-                          title="Sửa"
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDeleteTarget({
-                              id: child.id,
-                              name: child.name,
-                              type: "child",
-                            })
-                          }
-                          className="text-slate-400 transition hover:text-red-600"
-                          title="Xóa"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    ))
+                        Sửa
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setDeleteTarget({
+                            id: child.id,
+                            name: child.name,
+                            type: "child",
+                          })
+                        }
+                        className="text-slate-400 transition hover:text-red-600"
+                        title="Xóa"
+                      >
+                        Xóa
+                      </button>
+                    </div>
+                  ))
                 )}
               </div>
             </section>
@@ -519,6 +611,7 @@ export function AdminCategoriesPanel() {
         isOpen={Boolean(editingCategory)}
         category={editingCategory}
         categories={categories}
+        detachedChildIds={detachedChildIds}
         onClose={() => setEditingCategory(null)}
         onSaved={() => setToast("Đã cập nhật danh mục thành công.")}
       />
@@ -529,8 +622,38 @@ export function AdminCategoriesPanel() {
         onCancel={() => !deletingId && setDeleteTarget(null)}
         onConfirm={handleDeleteConfirm}
       />
+      {isConfirmModalOpen ? (
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 p-4">
+          <div className="mx-auto w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-900">Xác nhận xóa danh mục</h3>
+            <p className="mt-2 text-gray-600">
+              Danh mục này đang có danh mục con. Nếu xóa, các danh mục con sẽ được chuyển về mục
+              &apos;Chưa xếp loại&apos;. Bạn có chắc chắn muốn xóa?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeConfirmModal}
+                disabled={deletingId === categoryToDeleteId}
+                className="rounded-lg bg-gray-200 px-4 py-2 text-gray-800 hover:bg-gray-300 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={deletingId === categoryToDeleteId}
+                className="rounded-lg bg-red-600 px-4 py-2 text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {deletingId === categoryToDeleteId ? "Đang xóa..." : "Xác nhận xóa"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
       {isAddModalOpen && (
         <AddCategoryModal
+          excludedRootIds={detachedChildIds}
           onClose={() => setIsAddModalOpen(false)}
           onSaved={() => setIsAddModalOpen(false)}
         />

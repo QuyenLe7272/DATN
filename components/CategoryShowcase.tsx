@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { collection, onSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { buildCategoryHref, resolveCategorySlug } from "@/lib/slug";
 
 type CategoryRow = {
   id: string;
@@ -16,7 +17,7 @@ type CategoryRow = {
 const SHOWCASE_PARENT_SLUGS = ["hop-den", "bang-hieu-alu", "bang-hieu-led"] as const;
 
 function resolveParentHref(parent: CategoryRow) {
-  return `/danh-muc/${parent.slug?.trim() || parent.id}`;
+  return buildCategoryHref(parent);
 }
 
 export default function CategoryShowcase() {
@@ -48,7 +49,7 @@ export default function CategoryShowcase() {
     );
     const map = new Map<string, { parent: CategoryRow; children: CategoryRow[] }>();
     for (const parent of parents) {
-      const key = (parent.slug?.trim() || parent.id).toLowerCase();
+      const key = resolveCategorySlug(parent).toLowerCase();
       const children = categories.filter((category) => category.parentId === parent.id);
       map.set(key, { parent, children });
     }

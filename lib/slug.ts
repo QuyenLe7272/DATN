@@ -1,24 +1,47 @@
 import type { Firestore } from "firebase/firestore";
 import { collection, getDocs, limit, query, where } from "firebase/firestore";
 
-export function generateSlug(text: string): string {
+type SlugSource = {
+  id?: string | null;
+  name?: string | null;
+  slug?: string | null;
+};
+
+export function createSlug(text: string): string {
   const input = String(text ?? "").trim();
   if (!input) return "";
 
-  // Normalize Vietnamese (NFD) and remove diacritics.
+  // Normalize Vietnamese characters and strip combining marks.
   const withoutMarks = input
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/[đĐ]/g, "d");
 
-  // Lowercase and replace non-alphanumeric with hyphens.
-  const slug = withoutMarks
+  return withoutMarks
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .replace(/-{2,}/g, "-");
+    .replace(/-{2,}/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
 
-  return slug;
+export function generateSlug(text: string): string {
+  return createSlug(text);
+}
+
+export function resolveCategorySlug(source: SlugSource): string {
+  const fromSlug = createSlug(source.slug ?? "");
+  if (fromSlug) return fromSlug;
+
+  const fromName = createSlug(source.name ?? "");
+  if (fromName) return fromName;
+
+  const fromId = String(source.id ?? "").trim();
+  return createSlug(fromId) || fromId;
+}
+
+export function buildCategoryHref(source: SlugSource): string {
+  const slug = resolveCategorySlug(source);
+  return `/danh-muc/${slug || "tat-ca"}`;
 }
 
 type EnsureUniqueSlugOptions = {
@@ -34,7 +57,7 @@ export async function ensureUniqueSlug({
   baseSlug,
   excludeDocId,
 }: EnsureUniqueSlugOptions): Promise<string> {
-  const normalizedBase = generateSlug(baseSlug);
+  const normalizedBase = createSlug(baseSlug);
   const fallbackBase = normalizedBase || "item";
 
   let suffix = 0;

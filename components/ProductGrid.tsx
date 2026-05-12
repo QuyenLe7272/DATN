@@ -4,6 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { buildCategoryHref } from '@/lib/slug';
 import ProductBadge from "@/components/ProductBadge";
 
 function parsePriceVnd(price?: string) {
@@ -165,7 +166,7 @@ export default function ProductGrid({
             </div>
             <div className="flex items-center justify-end pr-4 md:hidden">
               <Link
-                href={`/danh-muc/${section.parent.slug || section.parent.id}`}
+                href={buildCategoryHref(section.parent)}
                 className="font-semibold text-red-600 hover:underline"
               >
                 <span className="md:hidden">Tất cả</span>
@@ -176,14 +177,14 @@ export default function ProductGrid({
             <div className="hidden items-center gap-3 px-4 text-sm text-slate-700 md:flex">
               {section.children.map((child, index) => (
                 <React.Fragment key={child.id}>
-                    <Link href={`/danh-muc/${child.slug || child.id}`} className="hover:text-red-600">
+                    <Link href={buildCategoryHref(child)} className="hover:text-red-600">
                       {child.name}
                     </Link>
                     {index < section.children.length - 1 ? <span>|</span> : null}
                 </React.Fragment>
               ))}
               <Link
-                href={`/danh-muc/${section.parent.slug || section.parent.id}`}
+                href={buildCategoryHref(section.parent)}
                 className="font-semibold text-red-600 hover:underline"
               >
                 <span className="md:hidden">Tất cả</span>
