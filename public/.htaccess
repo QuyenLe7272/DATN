@@ -1,9 +1,14 @@
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-  RewriteBase /
-  RewriteRule ^index\.html$ - [L]
-  RewriteCond %{REQUEST_FILENAME} !-f
-  RewriteCond %{REQUEST_FILENAME} !-d
-  RewriteCond %{REQUEST_FILENAME} !-l
-  RewriteRule . /index.html [L]
-</IfModule>
+RewriteEngine On
+RewriteBase /
+
+# 1. Nếu yêu cầu là file/thư mục thật (ảnh, css, js) thì mở nó ra luôn
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# 2. Đảm bảo các file trong _next không bị rewrite nhầm
+RewriteRule ^_next/(.*)$ _next/$1 [L]
+
+# 3. Mọi đường dẫn ảo khác (như /san-pham/...) đều trả về index.html
+# Để Next.js (Client-side) tự đọc URL và render trang
+RewriteRule ^(.*)$ index.html [L]
