@@ -1,7 +1,25 @@
+Options -Indexes -MultiViews
 RewriteEngine On
 RewriteBase /
+
+# 1) Bỏ qua khi request trỏ thẳng vào file hoặc thư mục có thật (CSS, JS,
+#    ảnh, font, ...). Apache phục vụ trực tiếp, không rewrite.
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
-RewriteRule ^_next/(.*)$ _next/$1 [L]
-RewriteRule ^(.*)$ index.html [L]
+
+# 2) Next.js static export sinh ra `out/san-pham/<slug>.html`. Khi URL là
+#    `/san-pham/<slug>` (không có đuôi .html), thêm `.html` nếu file tồn tại.
+#    Việc này giúp Google bot vào URL sạch vẫn nhận đúng nội dung pre-render.
+RewriteCond %{DOCUMENT_ROOT}/$1.html -f
+RewriteRule ^(.+?)/?$ /$1.html [L]
+
+# 3) SPA fallback cho mọi /san-pham/* chưa có file pre-render. Sản phẩm mới
+#    (thêm vào Firestore sau khi build) sẽ rơi vào nhánh này: trả về
+#    san-pham.html, sau đó ProductDetailClient đọc slug từ URL hiện tại
+#    (qua `useParams`) và fetch Firestore phía client.
+RewriteRule ^san-pham(/.*)?$ /san-pham.html [L]
+
+# 4) SPA fallback chung cho các route ảo khác (vd /admin/*, /danh-muc/* khi
+#    người dùng reload trang chưa pre-render).
+RewriteRule ^ /index.html [L]

@@ -33,6 +33,7 @@ import {
   limit,
   query,
   where,
+  type DocumentSnapshot,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
 import "react-quill-new/dist/quill.snow.css";
@@ -49,7 +50,9 @@ type ProductRecord = ProductData & {
   longDescription?: string;
 };
 
-// generateStaticParams removed because this page now fetches product data dynamically on the client.
+type ProductDetailClientProps = {
+  id: string;
+};
 
 function LoadingView() {
   return (
@@ -103,9 +106,18 @@ function MessageView({ message }: { message: string }) {
   );
 }
 
-export default function ProductDetailPage() {
-  const params = useParams<{ id: string }>();
-  const slug = String(params.id ?? "").trim();
+export default function ProductDetailClient({ id }: ProductDetailClientProps) {
+  // Đọc slug từ `useParams()` để luôn lấy đúng giá trị tại runtime, kể cả
+  // trong các tình huống:
+  //   - Dev/SSR: hỗ trợ Fast Refresh khi URL thay đổi mà props chưa cập nhật.
+  //   - Static Export (khi bật lại): nếu Apache SPA-fallback rewrite
+  //     /san-pham/<slug-mới> về san-pham.html (vốn được pre-render với slug=[]),
+  //     prop `id` sẽ rỗng nhưng URL vẫn là /san-pham/<slug-mới>.
+  const routeParams = useParams<{ slug?: string[] | string }>();
+  const slugFromUrl = Array.isArray(routeParams?.slug)
+    ? routeParams.slug[0]
+    : routeParams?.slug;
+  const slug = String(slugFromUrl ?? id ?? "").trim();
 
   const [product, setProduct] = useState<ProductRecord | null>(null);
   const [categories, setCategories] = useState<CategoryLookupRow[]>([]);
@@ -132,20 +144,43 @@ export default function ProductDetailPage() {
       setRelatedProducts([]);
 
       try {
-        const slugQuery = query(collection(db, "products"), where("slug", "==", slug), limit(1));
+        // 1) Ưu tiên tìm theo trường `slug` (canonical URL hiện tại).
+        const slugQuery = query(
+          collection(db, "products"),
+          where("slug", "==", slug),
+          limit(1),
+        );
         const slugSnap = await getDocs(slugQuery);
-        const fallbackSnap = slugSnap.docs[0] ?? (await getDoc(doc(db, "products", slug)));
+        let foundSnap: QueryDocumentSnapshot | DocumentSnapshot | null =
+          slugSnap.docs[0] ?? null;
+
+        // 2) Fallback: thử coi `slug` chính là Firestore document ID (URL cũ
+        //    hoặc URL chia sẻ từ trước khi đổi tên). `doc()` sẽ throw nếu id
+        //    chứa "/" hoặc rỗng, vì vậy wrap try/catch để không vỡ trang.
+        if (!foundSnap) {
+          try {
+            const byIdSnap = await getDoc(doc(db, "products", slug));
+            if (byIdSnap.exists()) {
+              foundSnap = byIdSnap;
+            }
+          } catch (idErr) {
+            console.warn(
+              "[product-detail-client] fallback theo id thất bại:",
+              idErr,
+            );
+          }
+        }
 
         if (!isActive) return;
 
-        if (!fallbackSnap || !fallbackSnap.exists()) {
+        if (!foundSnap || !foundSnap.exists()) {
           setStatus("not-found");
           return;
         }
 
         const nextProduct = {
-          id: fallbackSnap.id,
-          ...(fallbackSnap.data() ?? {}),
+          id: foundSnap.id,
+          ...((foundSnap.data() ?? {}) as Record<string, unknown>),
         } as ProductRecord;
 
         setProduct(nextProduct);
@@ -341,9 +376,10 @@ export default function ProductDetailPage() {
     return categoriesById.get(product.categoryId) ?? null;
   }, [categoriesById, product]);
 
-  const currentCategoryHref = currentCategory ? buildCategoryHref(currentCategory) : "/danh-muc/tat-ca";
-  const currentCategoryLabel =
-    currentCategory?.name || product?.categoryName?.trim() || "Danh mục";
+  const currentCategoryHref = currentCategory
+    ? buildCategoryHref(currentCategory)
+    : "/danh-muc/tat-ca";
+  const currentCategoryLabel = currentCategory?.name || product?.categoryName?.trim() || "Danh mục";
 
   const relatedProductsForInteractive: ProductData[] = useMemo(
     () =>
@@ -429,9 +465,3 @@ export default function ProductDetailPage() {
     </main>
   );
 }
-
-export async function generateStaticParams() {
-  return [];
-}
-
-export const dynamicParams = true;

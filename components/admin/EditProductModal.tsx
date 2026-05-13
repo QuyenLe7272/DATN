@@ -135,17 +135,26 @@ export function EditProductModal({
         ? await uploadImageToCloudinary(file)
         : (product.image ?? "");
       const name = form.name.trim();
-      const baseSlug = createSlug(name);
-      const slug = (
-        await ensureUniqueSlug({
-        db,
-        collectionName: "products",
-        baseSlug,
-        excludeDocId: product.id,
-        })
-      )
-        .trim()
-        .toLowerCase();
+
+      // Chỉ sinh slug mới khi tên thực sự đổi (hoặc sản phẩm chưa có slug).
+      // Trường hợp này tránh đổi slug "vô cớ" mỗi lần lưu các trường khác và
+      // cũng giúp `ensureUniqueSlug` không tốn query khi không cần thiết.
+      const previousName = String(product.name ?? "").trim();
+      const previousSlug = String(product.slug ?? "").trim();
+      const nameChanged = name !== previousName;
+      const needsSlug = nameChanged || !previousSlug;
+      const slug = needsSlug
+        ? (
+            await ensureUniqueSlug({
+              db,
+              collectionName: "products",
+              baseSlug: createSlug(name),
+              excludeDocId: product.id,
+            })
+          )
+            .trim()
+            .toLowerCase()
+        : previousSlug;
       const price = form.price.trim() || "Liên hệ";
       const desc = form.desc.trim();
       const badgeType = form.badgeType || null;
