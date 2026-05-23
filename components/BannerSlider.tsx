@@ -5,8 +5,8 @@ import { useCallback, useEffect, useState } from "react";
 const AUTO_PLAY_MS = 5000;
 
 const banners = [
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778389438/bannerrealmaume_yjddbr.jpg",
-  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1778389439/bannerreal2_td0igl.jpg",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1779454795/banner1_t0cp4d.png",
+  "https://res.cloudinary.com/dkkxbcn56/image/upload/v1779454822/banner2_dqwfvg.png",
 ];
 
 const navBtnClass =
